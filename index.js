@@ -98,7 +98,7 @@ class DatArchive {
     }
 
     // create the dat
-    var archive = new DatArchive(null, {localPath, datOptions, netOptions})
+    let archive = new DatArchive(null, {localPath, datOptions, netOptions})
     await archive._loadPromise
     await pda.writeManifest(archive._archive, {url: archive.url, title, description, type, author})
     return archive
@@ -110,13 +110,13 @@ class DatArchive {
     }
 
     // make sure the directory exists
-    var st = await new Promise(resolve => fs.stat(localPath, (err, st) => resolve(st)))
+    let st = await new Promise(resolve => fs.stat(localPath, (err, st) => resolve(st)))
     if (!st || !st.isDirectory()) {
       throw new Error('Cannot load Dat archive. (No folder exists at the given location.)')
     }
 
     // load the dat
-    var archive = new DatArchive(null, {localPath, datOptions, netOptions})
+    let archive = new DatArchive(null, {localPath, datOptions, netOptions})
     await archive._loadPromise
     return archive
   }
@@ -146,12 +146,7 @@ class DatArchive {
       await this._loadPromise
 
       // read manifest
-      var manifest
-      try {
-        manifest = await pda.readManifest(this._checkout)
-      } catch (e) {
-        manifest = {}
-      }
+      const manifest = await pda.readManifest(this._checkout).catch(() => ({}))
 
       // return
       return {
@@ -193,24 +188,22 @@ class DatArchive {
   async history (opts = {}) {
     return timer(to(opts), async () => {
       await this._loadPromise
-      var reverse = opts.reverse === true
-      var {start, end} = opts
+      const reverse = opts.reverse === true
+      let {start, end} = opts
 
       // if reversing the output, modify start/end
       start = start || 0
       end = end || this._checkout.metadata.length
       if (reverse) {
         // swap values
-        let t = start
-        start = end
-        end = t
+        [start, end] = [end, start]
         // start from the end
         start = this._checkout.metadata.length - start
         end = this._checkout.metadata.length - end
       }
 
       return new Promise((resolve, reject) => {
-        var stream = this._checkout.history({live: false, start, end})
+        const stream = this._checkout.history({live: false, start, end})
         stream.pipe(concat({encoding: 'object'}, values => {
           values = values.map(massageHistoryObj)
           if (reverse) values.reverse()
@@ -276,14 +269,14 @@ class DatArchive {
     filepath = massageFilepath(filepath)
     return timer(to(opts), async () => {
       await this._loadPromise
-      var names = await pda.readdir(this._checkout, filepath, opts)
+      let names = await pda.readdir(this._checkout, filepath, opts)
       if (opts.stat) {
-        for (let i = 0; i < names.length; i++) {
-          names[i] = {
-            name: names[i],
-            stat: await pda.stat(this._checkout, path.join(filepath, names[i]))
-          }
-        }
+        names = await Promise.all(
+          names.map(async (name) => ({
+            name,
+            stat: await pda.stat(this._checkout, path.join(filepath, name))
+          }))
+        )
       }
       return names
     })
@@ -318,7 +311,7 @@ class DatArchive {
       pathSpec = null
     }
 
-    var evts = toEventTarget(pda.watch(this._archive, pathSpec))
+    let evts = toEventTarget(pda.watch(this._archive, pathSpec))
     if (onInvalidated) {
       evts.addEventListener('invalidated', onInvalidated)
     }
